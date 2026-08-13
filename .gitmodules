@@ -1,0 +1,3 @@
+[submodule "third_party/go-hikvision-sdk"]
+	path = third_party/go-hikvision-sdk
+	url = git@github.com:elyor04/go-hikvision-sdk.git
