@@ -145,3 +145,6 @@ Events pushed to the frontend: `stream:ready` (a `StreamReadyDTO`), `stream:erro
 `stream:ready` fires exactly once per session, so a component that mounts afterwards
 would never learn a stream is already live - `GetStreamInfo` is the same information as a
 pull, which `LiveView.tsx` calls on mount to catch up.
+
+
+<img width="2560" height="1380" alt="Screenshot 2026-08-14 094744" src="https://github.com/user-attachments/assets/6acf6853-efd6-476b-b534-dcf89b3d7cf7" />
