@@ -17,6 +17,12 @@ export interface StreamReadyDTO {
 }
 
 export interface PlateEventDTO {
+    /**
+     * Per-process monotonic row id, the plate feed's React key - see types.go's
+     * own doc comment on why `receivedAt` (second-resolution) plus an array
+     * index was not a usable one.
+     */
+    seq: number;
     license: string;
     confidence: number;
     speedKmh: number;

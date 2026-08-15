@@ -49,8 +49,14 @@ export default function ConnectionPanel({connected, deviceInfo, onConnected, onD
                     <div>
                         <div className="host-line">{host}:{port}</div>
                         {deviceInfo && (
+                            /* The channel ranges are here because Live View's channel box needs
+                               them: HCNetSDK numbers channels from startChannel/startIPChannel,
+                               not from 1, and a wrong channel number is the most common reason a
+                               stream starts and then never produces video. */
                             <div className="device-line">
-                                S/N {deviceInfo.serialNumber || 'n/a'} · {deviceInfo.ipChannels} IP channel(s)
+                                S/N {deviceInfo.serialNumber || 'n/a'} · type {deviceInfo.deviceType} ·{' '}
+                                {deviceInfo.ipChannels} IP ch from {deviceInfo.startIPChannel} ·{' '}
+                                {deviceInfo.analogChannels} analog ch from {deviceInfo.startChannel}
                             </div>
                         )}
                     </div>

@@ -58,6 +58,17 @@ type StreamReadyDTO struct {
 // "anpr:event" event. Images are embedded as base64 data URIs so the
 // frontend can drop them straight into an <img src>.
 type PlateEventDTO struct {
+	// Seq is a per-process monotonic row id, assigned by StartANPR's delivery
+	// goroutine from App.anprSeq. It exists purely to give the frontend a
+	// stable React key: AnprFeed.tsx used to key rows on `receivedAt + array
+	// index`, and that list is prepended to, so every surviving row's key
+	// changed on each new detection and React remounted the whole list -
+	// re-creating up to MAX_EVENTS <img> elements with full base64 JPEGs in
+	// their src. ReceivedAt alone can't replace it either: it's RFC3339,
+	// second-resolution, so two plates read in the same second collide.
+	// Not persisted and not an audit id - the feed is in-memory UI state that
+	// restarts at 1 with the process, which is all a React key needs.
+	Seq         uint64 `json:"seq"`
 	License     string `json:"license"`
 	Confidence  uint8  `json:"confidence"`
 	SpeedKMH    uint16 `json:"speedKmh"`
@@ -69,8 +80,9 @@ type PlateEventDTO struct {
 	PlateImage  string `json:"plateImage,omitempty"`
 }
 
-func plateEventToDTO(ev hikvision.PlateEvent) PlateEventDTO {
+func plateEventToDTO(seq uint64, ev hikvision.PlateEvent) PlateEventDTO {
 	dto := PlateEventDTO{
+		Seq:         seq,
 		License:     ev.License,
 		Confidence:  ev.Confidence,
 		SpeedKMH:    ev.SpeedKMH,

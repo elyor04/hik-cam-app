@@ -55,7 +55,7 @@ func (a *App) StartANPR() error {
 		for ev := range events {
 			log.Printf("[anpr] plate=%q confidence=%d%% speed=%dkm/h direction=%d lane=%d scene=%dB plate-img=%dB",
 				ev.License, ev.Confidence, ev.SpeedKMH, ev.Direction, ev.Lane, len(ev.SceneImage), len(ev.PlateImage))
-			a.emit(evtANPREvent, plateEventToDTO(ev))
+			a.emit(evtANPREvent, plateEventToDTO(a.anprSeq.Add(1), ev))
 		}
 		cs.mu.Lock()
 		// Only clear if the subscription is still ours. A fast

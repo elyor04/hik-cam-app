@@ -1,6 +1,14 @@
-// Package h264 provides small, dependency-free helpers for inspecting
-// Annex-B H.264/H.265 NAL unit streams - codec/profile sniffing and
-// keyframe detection. No decoding; byte-level inspection only.
+// Package h264 provides small, dependency-free helpers for inspecting Annex-B
+// NAL unit streams - codec/profile sniffing and keyframe detection. No
+// decoding; byte-level inspection only.
+//
+// Everything here except DetectCodec is H.264-only. That is a real limit, not
+// an oversight to route around: CodecString emits avc1.*, ProfileLevel looks
+// for an H.264 SPS (NAL type 7), IsKeyframe looks for an H.264 IDR slice (type
+// 5), and internal/video/psdemux reassembles access units using H.264 VCL types
+// (1 and 5). An H.265 stream fed through this pipeline is misframed and then
+// configured as H.264; the visible result is a decoder that fails repeatedly.
+// Supporting H.265 means changing all of those together, not just DetectCodec.
 package h264
 
 import "fmt"
@@ -37,9 +45,9 @@ func IterateAnnexB(data []byte) [][]byte {
 	return nals
 }
 
-// NALType returns an H.264 NAL unit's nal_unit_type (low 5 bits of the
-// first byte). Only meaningful for H.264; H.265 uses a different layout
-// (see IsHEVCKeyframe).
+// NALType returns an H.264 NAL unit's nal_unit_type (low 5 bits of the first
+// byte). Only meaningful for H.264 - H.265 encodes its type in a different
+// layout (6 bits, one position over), which nothing in this package decodes.
 func NALType(nal []byte) byte {
 	if len(nal) == 0 {
 		return 0
@@ -48,7 +56,9 @@ func NALType(nal []byte) byte {
 }
 
 // DetectCodec inspects an Annex-B NAL stream for an SPS unit to determine
-// whether the elementary stream is H.264 or H.265.
+// whether the elementary stream is H.264 or H.265. It is the only function here
+// that recognizes H.265 at all, and it exists so a caller can *reject* such a
+// stream with a clear message rather than misdecode it - see the package doc.
 func DetectCodec(data []byte) (codec string, ok bool) {
 	for _, nal := range IterateAnnexB(data) {
 		if len(nal) == 0 {

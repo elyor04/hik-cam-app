@@ -50,8 +50,10 @@ const (
 	maxPendingBytes   = 8 << 20 // 8MiB
 )
 
-// Unit is one complete, reassembled H.264/H.265 access unit, ready to hand
-// to a WebCodecs EncodedVideoChunk with no further framing.
+// Unit is one complete, reassembled H.264 access unit, ready to hand to a
+// WebCodecs EncodedVideoChunk with no further framing. H.264 only: appendPayload
+// finds access unit boundaries using H.264 VCL NAL types, so an H.265 stream is
+// misframed here rather than rejected - see internal/video/h264's package doc.
 type Unit struct {
 	// Data is Annex-B (0x000001/0x00000001 start codes), owned by the
 	// caller - safe to retain past the next Feed call.

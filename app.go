@@ -8,10 +8,13 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/elyor04/go-hikvision-sdk/hikvision"
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
+
+	"hik-cam-app/internal/wire"
 )
 
 // cameraSession holds every piece of per-camera state: the device login, the
@@ -28,10 +31,10 @@ type cameraSession struct {
 	streamCancel    context.CancelFunc
 	streamStartedAt time.Time // set on StartStream; every timing log is relative to it
 	// broadcast fans this session's demuxed access units out to every
-	// currently-connected HTTP viewer (see broadcast.go) - non-nil for
+	// currently-connected HTTP viewer (see internal/wire) - non-nil for
 	// exactly as long as a stream pipeline is running, the same lifetime
 	// streamCancel has.
-	broadcast *broadcaster
+	broadcast *wire.Broadcaster
 	// streamReady caches the most recent "stream:ready" payload for as long
 	// as the pipeline that produced it stays alive. That event is a
 	// one-time push, so a frontend component that mounts (or remounts)
@@ -59,6 +62,17 @@ type App struct {
 
 	httpSrv  *http.Server
 	httpAddr string
+	// streamToken is the unguessable path segment /stream is served under - see
+	// newStreamPathToken. Set once by startHTTP, read-only afterwards.
+	streamToken string
+
+	// anprSeq assigns PlateEventDTO.Seq - see that field's own doc comment.
+	// Deliberately on App rather than on cameraSession or per-subscription:
+	// AnprFeed keeps its accumulated list across a Stop/Start cycle, so a
+	// counter that restarted with each subscription would hand a fresh event
+	// the same key as a row still mounted from the previous one - reintroducing
+	// the exact duplicate-key collision Seq exists to remove.
+	anprSeq atomic.Uint64
 }
 
 // NewApp creates a new App application struct.
@@ -81,10 +95,10 @@ func (a *App) startup(ctx context.Context) {
 	// HCNetSDK reports a broken live-view connection (e.g. the camera's
 	// network cable pulled) through this process-wide callback, generally
 	// well before its own NET_DVR_SetReconnect interval would notice.
-	// Registering it is best-effort: runDemuxPipeline's stale-frame
-	// watchdog (stream.go) independently catches the same condition within
-	// streamStaleTimeout, which matters because against real hardware this
-	// callback has been observed *not* to fire at all on a cable pull.
+	// Registering it is best-effort: wire.Pipeline's stale-frame watchdog
+	// independently catches the same condition within wire.DefaultStaleTimeout,
+	// which matters because against real hardware this callback has been
+	// observed *not* to fire at all on a cable pull.
 	if err := hikvision.OnException(a.handleSDKException); err != nil {
 		log.Printf("[sdk] OnException registration failed, network drops will only be caught by the stale-stream watchdog: %v", err)
 	}
@@ -238,7 +252,7 @@ func (a *App) GetStreamInfo() (StreamReadyDTO, error) {
 }
 
 // LogFrontend forwards a frontend console line into this process's own
-// stdout (see frontend/src/components/LiveView.tsx's logT). A production
+// stdout (see frontend/src/hooks/useCameraStream.ts's logT). A production
 // build has no attached devtools console, so this is what makes frontend
 // timing/diagnostic logs visible at all outside a `wails dev` browser window.
 func (a *App) LogFrontend(msg string) {

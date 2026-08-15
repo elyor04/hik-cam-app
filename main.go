@@ -2,6 +2,7 @@ package main
 
 import (
 	"embed"
+	"log"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -33,7 +34,7 @@ func main() {
 		// large keyframe is decoded on at least one tested machine/driver
 		// combination - measured directly against the compiled app via the
 		// decode-latency/render-gap logging in
-		// frontend/src/components/LiveView.tsx: with GPU acceleration on,
+		// frontend/src/hooks/useCameraStream.ts: with GPU acceleration on,
 		// every keyframe caused a 630-660ms freeze, with framesDecoded and
 		// framesRendered diverging as stalled frames were silently dropped.
 		// Disabling it forces software decode, which eliminates the stall
@@ -53,6 +54,6 @@ func main() {
 	})
 
 	if err != nil {
-		println("Error:", err.Error())
+		log.Fatalf("wails: %v", err)
 	}
 }

@@ -89,8 +89,14 @@ export default function AnprFeed() {
                 {events.length === 0 && (
                     <li className="plate-empty">{active ? 'Waiting for detections…' : 'Not subscribed'}</li>
                 )}
-                {events.map((ev, i) => (
-                    <li className="plate-item" key={`${ev.receivedAt}-${i}`}>
+                {events.map(ev => (
+                    // Keyed by the backend's own monotonic ev.seq. This list is prepended
+                    // to, so the array index is not event identity - every surviving row's
+                    // key shifted by one on each detection, making React discard and rebuild
+                    // all of them (including each <img>'s full base64 JPEG src) instead of
+                    // leaving them alone. receivedAt can't stand in either: it's
+                    // second-resolution, so two plates read in the same second collide.
+                    <li className="plate-item" key={ev.seq}>
                         {(ev.plateImage || ev.sceneImage) && (
                             <img
                                 className="plate-thumb"

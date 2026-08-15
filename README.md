@@ -111,11 +111,15 @@ what `stage-dlls.ps1` is for. `build/bin/` is gitignored.
 
 - `main.go` - Wails app options (window, GPU flag, bindings).
 - `app.go` - `App` and `cameraSession` state, connect/disconnect, SDK exception handling.
-- `stream.go` - RealPlay → codec sniff → PS demux → wire format pipeline.
-- `httpstream.go` - the loopback `/stream` HTTP endpoint the frontend fetches.
-- `broadcast.go` - fans demuxed units out to every connected viewer, non-blocking.
+- `stream.go` - RealPlay → codec sniff → hands frames to the demux pipeline.
+- `httpstream.go` - the loopback `/stream/<token>` HTTP endpoint the frontend fetches.
 - `anpr.go` - plate-event subscription.
 - `types.go` - DTOs and Wails event names.
+- `internal/wire/` - this app's own length-prefixed access-unit format, the non-blocking
+  fan-out that delivers it to every connected viewer, and the demux pipeline that produces
+  it. Imports no SDK on purpose: `package main` can only be built on Windows with the
+  vendored proprietary headers, so anything left in it is untestable everywhere else. The
+  pipeline is generic over its frame type, which is what keeps `hikvision.Frame` out.
 - `internal/video/psdemux/` - native Go MPEG-PS/PES demuxer, unit-tested against real
   captured camera bytes in `testdata/`.
 - `internal/video/h264/` - Annex-B NAL helpers shared by the demuxer and `stream.go`.
@@ -123,8 +127,10 @@ what `stage-dlls.ps1` is for. `build/bin/` is gitignored.
   git submodule pinned to a tagged release and linked locally via a `go.mod` replace
   directive, with its own examples covering the SDK surface this app uses (login,
   RealPlay, PTZ, alarms/ANPR, playback).
-- `frontend/` - React/TypeScript UI. `src/components/LiveView.tsx` is the WebCodecs
-  player; `src/components/AnprFeed.tsx` and `ConnectionPanel.tsx` round out the UI.
+- `frontend/` - React/TypeScript UI. `src/hooks/useCameraStream.ts` is the WebCodecs
+  player: decoder lifecycle, wire-format parsing, the fetch reader loop, telemetry, and
+  the stream's lifecycle state machine. The components (`LiveView.tsx`, `AnprFeed.tsx`,
+  `ConnectionPanel.tsx`) are only the panels around it.
 
 ## Wails API surface
 
@@ -133,8 +139,9 @@ what `stage-dlls.ps1` is for. `build/bin/` is gitignored.
 | `Connect(host, port, username, password)` | Log in, returns `DeviceInfoDTO` |
 | `Disconnect()` | Stop stream + ANPR, log out |
 | `IsConnected()` | Current login state |
-| `StartStream(channel)` | Begin live view, returns the stream URL |
+| `StartStream(channel)` | Begin live view |
 | `StopStream()` | End live view |
+| `IsStreamActive()` | Whether a pipeline is running, including during the codec sniff |
 | `GetStreamInfo()` | Pull the current stream URL/codec (see below) |
 | `StartANPR()` / `StopANPR()` / `IsANPRActive()` | Plate-event subscription |
 | `LogFrontend(msg)` | Forward a frontend log line to Go's stdout |
@@ -144,7 +151,20 @@ Events pushed to the frontend: `stream:ready` (a `StreamReadyDTO`), `stream:erro
 
 `stream:ready` fires exactly once per session, so a component that mounts afterwards
 would never learn a stream is already live - `GetStreamInfo` is the same information as a
-pull, which `LiveView.tsx` calls on mount to catch up.
+pull, which `useCameraStream.ts` calls on mount to catch up.
+
+`IsStreamActive` covers the gap `GetStreamInfo` cannot: between `StartStream` and
+`stream:ready` the pipeline is running but has no codec to report yet, for as long as the
+codec sniff takes (up to 8s). A mount landing in that window must not conclude there is no
+stream and offer a Start button that is guaranteed to fail.
+
+`StartStream` deliberately returns no URL. The URL alone is not usable - `VideoDecoder`
+also needs a codec string, which isn't known until an SPS NAL has been buffered - so the
+URL is only ever delivered together with it, by `stream:ready` or `GetStreamInfo`.
+
+The stream is served from `/stream/<random-token>` on the loopback listener. The token is
+generated per process and only ever handed to the frontend over the Wails bridge; it is
+what keeps any other page on the machine from reading the camera feed off `127.0.0.1`.
 
 
 <img width="2560" height="1380" alt="Screenshot 2026-08-14 094744" src="https://github.com/user-attachments/assets/6acf6853-efd6-476b-b534-dcf89b3d7cf7" />
