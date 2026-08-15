@@ -15,8 +15,15 @@ npm run stub:install   # copies preview-stub/ -> wailsjs/
 npm run dev
 ```
 
-Then press **Connect** (any host/credentials -- they are ignored), then **Start** on Live View and
-**Start** on the plate feed.
+Then press **Connect**, then **Start** on Live View and **Start** on the plate feed.
+
+The stub ignores the host, port, username and password entirely -- but the connection form's fields
+are all HTML5 `required`, and Password is the only one without a default, so leaving it empty makes
+the browser block the submit and nothing appears to happen. Type any character into it.
+
+Live View takes a second or two to show its first frame: the browser has to spin up a software
+H.264 encoder before the synthetic stream produces a keyframe. The plate feed emits a detection
+every 4 seconds.
 
 `stub:install` refuses to overwrite real generated bindings unless given `--force`, so running it by
 accident on a machine that can build the backend cannot silently replace working bindings with demo
