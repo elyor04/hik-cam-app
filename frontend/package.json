@@ -4,8 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
+    "dev": "node scripts/check-stub-drift.mjs && vite",
+    "build": "node scripts/check-stub-drift.mjs && tsc && vite build",
+    "stub:install": "node scripts/install-preview-stub.mjs && node scripts/check-stub-drift.mjs --strict",
+    "check:stub": "node scripts/check-stub-drift.mjs --strict",
     "preview": "vite preview"
   },
   "dependencies": {
