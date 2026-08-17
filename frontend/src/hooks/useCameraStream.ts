@@ -31,6 +31,28 @@ const DECODE_FAILURE_THRESHOLD = 10;
 const LOG_LINES_PER_SEC = 10;
 
 /**
+ * Strips the stream URL's random path token out of a diagnostic line.
+ *
+ * That token is not decoration: the loopback listener is reachable by any page
+ * in any browser on this machine, and the CORS header has to stay "*" because
+ * the frontend's origin differs between `wails dev` and a packaged build, so an
+ * unguessable path is the only thing actually gating access to the camera feed
+ * (see httpstream.go's newStreamPathToken). Every logT line is forwarded to Go's
+ * stdout via LogFrontend, and an app log is precisely what gets pasted into a
+ * bug report or shown on a screen share - so logging the token there hands the
+ * live feed to anyone who reads it.
+ *
+ * Applied centrally, on the composed line, rather than at each call site: the
+ * URL reaches the log inside a whole StreamReadyDTO at two of the three current
+ * sites, and a redaction that has to be remembered per call is one that will be
+ * forgotten by the next one. The host:port is deliberately kept - it is the
+ * useful half for diagnosing a failed fetch.
+ */
+function redactStreamToken(line: string): string {
+    return line.replace(/(\/stream\/)[0-9a-f]{8,}/gi, '$1<redacted>');
+}
+
+/**
  * Lifecycle of the live view, as an explicit state rather than a set of
  * independent booleans.
  *
@@ -124,7 +146,9 @@ export function useCameraStream(canvasRef: RefObject<HTMLCanvasElement | null>):
 
         const t = streamStartRef.current === 0 ? '?' : ((now - streamStartRef.current) / 1000).toFixed(2);
         const note = suppressed > 0 ? ` (+${suppressed} suppressed)` : '';
-        const line = `[t+${t}s] ${label}${note} ${extra !== undefined ? JSON.stringify(extra) : ''}`;
+        const line = redactStreamToken(
+            `[t+${t}s] ${label}${note} ${extra !== undefined ? JSON.stringify(extra) : ''}`,
+        );
         console.log(`[camera]${line}`);
         // A production build has no attached devtools console - forward to Go's
         // stdout (see app.go's LogFrontend) so these are visible at all when

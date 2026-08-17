@@ -24,6 +24,13 @@ import (
 // handed to the frontend over the Wails bridge ("stream:ready"/GetStreamInfo),
 // never guessable from outside, and never logged in full.
 //
+// That last property spans both languages and is enforced on the other side of
+// the bridge: this file never logs the token, but the frontend receives the full
+// URL and forwards its diagnostics here through LogFrontend, so the frontend is
+// where it could leak into this process's own stdout. useCameraStream.ts's
+// redactStreamToken strips it from every line before that happens. Keep the two
+// together - a "never logged" claim only held up by one end is not held up.
+//
 // Generated once per process rather than per stream, so the URL stays stable
 // across a stop/start cycle - a viewer only ever learns it through the bridge
 // anyway, and rotating it would invalidate a URL a live panel is still holding.
