@@ -3,7 +3,7 @@ module hik-cam-app
 go 1.25.0
 
 require (
-	github.com/elyor04/go-hikvision-sdk v1.2.0
+	github.com/elyor04/go-hikvision-sdk v1.2.2
 	github.com/wailsapp/wails/v2 v2.13.0
 )
 
